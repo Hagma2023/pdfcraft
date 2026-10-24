@@ -149,7 +149,8 @@ pub struct AddedImage {
     pub rotation: u8,
     pub flip_h: bool,
     pub flip_v: bool,
-    /// The fraction trimmed from each side of the image: left, bottom, right, top.
+    /// The fraction trimmed from each side of the image: left, bottom, right, top (see
+    /// [`AddedImage::crop_valid`]).
     pub crop: [f64; 4],
 }
 
@@ -158,12 +159,34 @@ impl AddedImage {
         AddedImage { rect, image, rotation: 0, flip_h: false, flip_v: false, crop: [0.0; 4] }
     }
 
+    /// The least of the image's width and of its height that a crop keeps.
+    pub const MIN_CROP_KEEP: f64 = 0.05;
+
+    /// Whether `crop` trims every side by a fraction from 0 to under 1 and keeps at least
+    /// [`AddedImage::MIN_CROP_KEEP`] across each axis: one side may trim 95 % when its opposite
+    /// trims nothing.
+    pub fn crop_valid(crop: [f64; 4]) -> bool {
+        let [l, b, r, t] = crop;
+        let most = 1.0 - Self::MIN_CROP_KEEP;
+        crop.iter().all(|v| v.is_finite() && (0.0..1.0).contains(v)) && l + r <= most && b + t <= most
+    }
+
+    /// `crop` brought into [`AddedImage::crop_valid`] range, for one read from a file: each side
+    /// in range, and an axis that trims too much keeps its two sides' proportion.
+    pub fn clamp_crop(crop: [f64; 4]) -> [f64; 4] {
+        let most = 1.0 - Self::MIN_CROP_KEEP;
+        let [l, b, r, t] = crop.map(|v| if v.is_finite() { v.clamp(0.0, most) } else { 0.0 });
+        let fit = |a: f64, c: f64| if a + c > most { (a * most / (a + c), c * most / (a + c)) } else { (a, c) };
+        let ((l, r), (b, t)) = (fit(l, r), fit(b, t));
+        [l, b, r, t]
+    }
+
     /// The matrix from image space (the unit square) to display space: crop, flip, rotate,
     /// then fill the box.
     fn matrix(&self) -> pdfcraft_content::Matrix {
         use pdfcraft_content::Matrix as M;
-        let [l, b, r, t] = self.crop.map(|v| v.clamp(0.0, 0.45));
-        let (cw, ch) = ((1.0 - l - r).max(0.05), (1.0 - b - t).max(0.05));
+        let [l, b, r, t] = Self::clamp_crop(self.crop);
+        let (cw, ch) = (1.0 - l - r, 1.0 - b - t);
         let mut m = M([1.0 / cw, 0.0, 0.0, 1.0 / ch, -l / cw, -b / ch]);
         if self.flip_h {
             m = m.then(&M([-1.0, 0.0, 0.0, 1.0, 1.0, 0.0]));
