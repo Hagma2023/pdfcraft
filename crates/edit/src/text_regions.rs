@@ -423,7 +423,7 @@ pub(super) fn rewrite_styled_block(
         return Err(EditError::Invalid("the replacement text is too large".into()));
     }
     if draft == block.editor_text && *style == BlockStyle::default() {
-        return Ok(LineEdit { substituted: None });
+        return Ok(LineEdit { substituted: None, missing: Vec::new() });
     }
     let mut ranges: Vec<_> = style.ranges.iter().collect();
     ranges.sort_by_key(|r| r.range.start);
@@ -555,6 +555,9 @@ pub(super) fn rewrite_styled_block(
     // Each tuple is a character, its source style and an encodable resource name.
     let mut chars = Vec::new();
     let mut substituted = None;
+    // The characters drawn in a fallback face, each once in order (spaces don't count).
+    let mut missing: Vec<char> = Vec::new();
+    let mut missed = std::collections::BTreeSet::new();
     let mut fallback_groups: Vec<FallbackGroup> = Vec::new();
     let mut fallback_names: std::collections::BTreeMap<(String, bool, char), usize> = std::collections::BTreeMap::new();
     let mut fallback_glyphs = 0_usize;
@@ -630,6 +633,9 @@ pub(super) fn rewrite_styled_block(
                 }
             } else {
                 let family = source_family(&source.base_font);
+                if !ch.is_whitespace() && missed.insert(ch) {
+                    missing.push(ch);
+                }
                 if needs_type3(&s) {
                     let key = (source.base_font.clone(), source.bold, ch);
                     let group_index = if let Some(index) = fallback_names.get(&key) {
@@ -1102,5 +1108,5 @@ pub(super) fn rewrite_styled_block(
         d.set(b"Contents".to_vec(), contents);
         d.set(b"Resources".to_vec(), Object::Dict(res));
     })?;
-    Ok(LineEdit { substituted })
+    Ok(LineEdit { substituted, missing })
 }
