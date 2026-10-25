@@ -179,8 +179,13 @@ impl AddedImage {
     /// in range, and an axis that trims too much keeps its two sides' proportion.
     pub fn clamp_crop(crop: [f64; 4]) -> [f64; 4] {
         let most = 1.0 - Self::MIN_CROP_KEEP;
-        let [l, b, r, t] = crop.map(|v| if v.is_finite() { v.clamp(0.0, most) } else { 0.0 });
-        let fit = |a: f64, c: f64| if a + c > most + Self::CROP_ROUNDING { (a * most / (a + c), c * most / (a + c)) } else { (a, c) };
+        let [l, b, r, t] = crop.map(|v| if v.is_finite() { v.max(0.0) } else { 0.0 });
+        // Scaled from the halves, whose sum can't overflow, so the pair keeps its proportion;
+        // a pair within the limit keeps each side within it too.
+        let fit = |a: f64, c: f64| {
+            let half = a / 2.0 + c / 2.0;
+            if half > (most + Self::CROP_ROUNDING) / 2.0 { (a / 2.0 / half * most, c / 2.0 / half * most) } else { (a, c) }
+        };
         let ((l, r), (b, t)) = (fit(l, r), fit(b, t));
         [l, b, r, t]
     }

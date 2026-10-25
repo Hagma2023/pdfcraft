@@ -91,6 +91,13 @@ fn an_added_image_crop_keeps_some_of_each_axis() {
     // From a file: too much across keeps the two sides' proportion; nonsense trims nothing.
     let [l, b, r, t] = AddedImage::clamp_crop([0.6, f64::INFINITY, 0.6, -1.0]);
     assert!((l - 0.475).abs() < 1e-12 && (r - 0.475).abs() < 1e-12 && b == 0.0 && t == 0.0);
+    // Sides beyond the whole image keep their proportion too, and huge ones don't overflow.
+    let [l, _, r, _] = AddedImage::clamp_crop([1.5, 0.0, 0.5, 0.0]);
+    assert!((l - 0.7125).abs() < 1e-12 && (r - 0.2375).abs() < 1e-12, "{l} {r}");
+    let [l, _, r, _] = AddedImage::clamp_crop([f64::MAX, 0.0, f64::MAX, 0.0]);
+    assert!((l - 0.475).abs() < 1e-12 && (r - 0.475).abs() < 1e-12, "{l} {r}");
+    let [l, _, r, _] = AddedImage::clamp_crop([1.5, 0.0, 0.0, 0.0]);
+    assert!((l - 0.95).abs() < 1e-12 && r == 0.0, "one side alone is capped at the limit");
 }
 
 #[test]
