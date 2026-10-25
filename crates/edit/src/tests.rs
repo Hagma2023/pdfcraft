@@ -80,6 +80,10 @@ fn an_added_image_crop_keeps_some_of_each_axis() {
     use crate::added::AddedImage;
     assert!(AddedImage::crop_valid([0.7, 0.0, 0.0, 0.95]));
     assert!(AddedImage::crop_valid([0.5, 0.45, 0.45, 0.5]));
+    // 0.05 + 0.9 rounds to just above 0.95: still the 5 % kept, accepted and left as it is.
+    assert!(AddedImage::crop_valid([0.05, 0.0, 0.9, 0.0]));
+    assert_eq!(AddedImage::clamp_crop([0.05, 0.0, 0.9, 0.0]), [0.05, 0.0, 0.9, 0.0]);
+    assert!(!AddedImage::crop_valid([0.06, 0.0, 0.9, 0.0]), "more than 95 % across");
     assert!(!AddedImage::crop_valid([0.6, 0.0, 0.4, 0.0]), "nothing left across");
     assert!(!AddedImage::crop_valid([-0.1, 0.0, 0.0, 0.0]));
     assert!(!AddedImage::crop_valid([f64::NAN, 0.0, 0.0, 0.0]));

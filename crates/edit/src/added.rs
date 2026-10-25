@@ -162,13 +162,17 @@ impl AddedImage {
     /// The least of the image's width and of its height that a crop keeps.
     pub const MIN_CROP_KEEP: f64 = 0.05;
 
+    /// How far a sum of two sides may pass the most a crop trims: `0.05 + 0.9` is
+    /// `0.9500000000000001` in floating point and still keeps 5 %.
+    const CROP_ROUNDING: f64 = 1e-9;
+
     /// Whether `crop` trims every side by a fraction from 0 to under 1 and keeps at least
     /// [`AddedImage::MIN_CROP_KEEP`] across each axis: one side may trim 95 % when its opposite
     /// trims nothing.
     pub fn crop_valid(crop: [f64; 4]) -> bool {
         let [l, b, r, t] = crop;
         let most = 1.0 - Self::MIN_CROP_KEEP;
-        crop.iter().all(|v| v.is_finite() && (0.0..1.0).contains(v)) && l + r <= most && b + t <= most
+        crop.iter().all(|v| v.is_finite() && (0.0..1.0).contains(v)) && l + r <= most + Self::CROP_ROUNDING && b + t <= most + Self::CROP_ROUNDING
     }
 
     /// `crop` brought into [`AddedImage::crop_valid`] range, for one read from a file: each side
@@ -176,7 +180,7 @@ impl AddedImage {
     pub fn clamp_crop(crop: [f64; 4]) -> [f64; 4] {
         let most = 1.0 - Self::MIN_CROP_KEEP;
         let [l, b, r, t] = crop.map(|v| if v.is_finite() { v.clamp(0.0, most) } else { 0.0 });
-        let fit = |a: f64, c: f64| if a + c > most { (a * most / (a + c), c * most / (a + c)) } else { (a, c) };
+        let fit = |a: f64, c: f64| if a + c > most + Self::CROP_ROUNDING { (a * most / (a + c), c * most / (a + c)) } else { (a, c) };
         let ((l, r), (b, t)) = (fit(l, r), fit(b, t));
         [l, b, r, t]
     }
