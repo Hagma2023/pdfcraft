@@ -74,7 +74,9 @@ pub fn validate_document_input(bytes: &[u8], grant: FontGrant) -> Result<(), Str
         return Err("Adobe-authored font assets are excluded by the project's asset policy".into());
     }
     if grant == FontGrant::InstalledEmbeddable {
-        return Ok(());
+        // The grant rests on the vendor's fsType: a font without a readable OS/2 table states no
+        // embedding permission at all.
+        return f.os2().map(|_| ()).map_err(|_| "this font declares no embedding permission (no readable OS/2 table)".into());
     }
     let license: String = f.localized_strings(StringId::LICENSE_DESCRIPTION).map(|s| s.to_string()).collect();
     if !["SIL OPEN FONT", "SIL Open Font", "Apache License", "Ubuntu Font Licence", "Bitstream Vera", "MIT License"]
@@ -429,6 +431,12 @@ mod tests {
             let font = without_licence(inter, Some(fs_type));
             assert!(validate_document_input(&font, FontGrant::InstalledEmbeddable).is_err(), "fsType {fs_type:#06x}");
         }
+        // No OS/2 table, so no fsType: no permission to rely on.
+        let mut no_os2 = inter.to_vec();
+        let record = (0..usize::from(u16::from_be_bytes([inter[4], inter[5]]))).map(|i| 12 + 16 * i).find(|&r| &inter[r..r + 4] == b"OS/2").unwrap();
+        no_os2[record..record + 4].copy_from_slice(b"OS/3");
+        assert!(FontRef::new(&no_os2).unwrap().os2().is_err());
+        assert!(validate_document_input(&no_os2, FontGrant::InstalledEmbeddable).is_err());
     }
 
     #[test]
