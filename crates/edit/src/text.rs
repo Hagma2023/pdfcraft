@@ -680,7 +680,8 @@ fn union(a: [f64; 4], b: [f64; 4]) -> [f64; 4] {
 /// What replacing a line did.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineEdit {
-    /// `Some(font)` when the line's font couldn't show the new text and Helvetica was used.
+    /// `Some(font)` when the line's font couldn't show the new text and Helvetica was used. A
+    /// styled paragraph that needed several faces names them all, in order, separated by `, `.
     pub substituted: Option<String>,
     /// The characters, each once in text order, that the text's own font can't show: why it was
     /// substituted (#2378). Empty when nothing was, or when only a requested weight was.

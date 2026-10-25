@@ -2739,6 +2739,23 @@ ca é",
         let edit = text::rewrite_block(&mut doc, 0, 0, Some(draft), &text::BlockStyle::default()).unwrap();
         assert_eq!((edit.substituted, edit.missing), (layout.substituted, layout.missing), "{draft:?}");
     }
+    // Two faces in one styled paragraph (a standard font for é, Inter's outlines for ш): both are
+    // named, not the last one alone (#4634 review).
+    let mut doc = page();
+    let two = text::rewrite_block(
+        &mut doc,
+        0,
+        0,
+        Some(
+            "ab
+c é ш",
+        ),
+        &text::BlockStyle::default(),
+    )
+    .unwrap();
+    assert_eq!(two.missing, ['c', 'é', 'ш']);
+    let faces = two.substituted.unwrap_or_default();
+    assert!(faces.contains("Helvetica") && faces.contains("Inter"), "{faces}");
     // Text the font shows has nothing missing, also when the user asks for another weight.
     let kept = text::rewrite_block(&mut page(), 0, 0, Some("ba ab"), &text::BlockStyle::default()).unwrap();
     assert_eq!((kept.substituted, kept.missing), (None, Vec::new()));
